@@ -8,6 +8,16 @@ var bumpedPosts = {};
 var username;
 var password;
 
+function GenerateRandomString() {
+    var text = "";
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+    for( var i = 0; i < 5; i++ )
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+    return text;
+}
+
 function BumpPost(postId, interval, bumpMessage) {
 	if (bumpedPosts[postId.toString()]) 
 		return;
@@ -18,8 +28,6 @@ function BumpPost(postId, interval, bumpMessage) {
 	rbxJs.login({username, password}).then(function(info) {
 	    console.log('Permissions Accessed');
 
-	    var iterator = 0;
-
 	    function perpetuate() {
 	    	if (!bumpedPosts[postId.toString()])
 	    		return;
@@ -28,21 +36,22 @@ function BumpPost(postId, interval, bumpMessage) {
 
 	    	rbxJs.forumPost({
 	    		"postId": postId,
-	    		"body": bumpMessage + (iterator > 0 ? (" " + iterator) : "")
+	    		"body": bumpMessage + " " + GenerateRandomString()
 	    	}).then(function(postId) {
-	    		iterator++;
 	    		console.log("Successfully Bumped Post #" + postId);
 	    		setTimeout(perpetuate, interval * 1000);
 	    	}).catch(function(err) {
 	    		console.log("ERROR: " + err);
-	    		perpetuate();
+	    		
+	    		if (err.toString().indexOf("Error: Floodcheck blocked post") == -1)
+	    			bumpedPosts[postId.toString()] = undefined;
+	    		else
+	    			perpetuate();
 	    	});
 	    };
 
 	    bumpedPosts[postId.toString()] = true;
-
-	    perpetuate();
-	    
+		perpetuate();
 	}).catch(function(err) {
 		console.log('Permissions Denied');
 		console.log(err);
@@ -53,7 +62,9 @@ router.get('/BumpedPosts', function(req, res) {
 	if (req.query.apiKey == apiKey) {
 		res.send(JSON.stringify({
 			RequestCompleted: true,
-			Posts: Object.keys(bumpedPosts)
+			Posts: Object.keys(bumpedPosts).filter(function(Id) {
+				return bumpedPosts[Id];
+			})
 		}));
 	} else {
 		console.log(req.query.apiKey);
